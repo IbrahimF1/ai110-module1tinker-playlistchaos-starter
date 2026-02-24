@@ -7,6 +7,49 @@ This activity is your first chance to practice AI-assisted debugging on a codeba
 You do not need to understand everything at once. Approach the app as a curious investigator, work with an AI assistant to explain what you find, and make targeted improvements.
 
 ---
+## Running within a uv Environment
+
+### If uv isn't installed (1-Time Global Install)
+```bash
+pip install uv
+```
+
+### Create uv virtual environment (Run Once Time after Cloning Repo)
+```bash
+uv venv
+```
+
+### Activate the environment (Run Every Time)
+- Mac/Linux
+```bash
+source .venv/bin/activate
+```
+- Windows
+```bash
+.venv\Scripts\activate
+```
+
+### Install Dependencies (Run Every Time)
+- If there is a `requirements.txt`
+```bash
+uv pip install -r requirements.txt
+```
+- If there is a `pyproject.toml` / `uv.lock`
+```bash
+uv sync
+```
+
+### Running Streamlit App
+```bash
+streamlit run app.py
+```
+
+### If `Module not found`
+```bash
+uv pip install replace_this_with_the_package_name
+```
+
+---
 
 ## How the code is organized
 
