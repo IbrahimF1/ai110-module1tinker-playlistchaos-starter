@@ -7,6 +7,12 @@ This activity is your first chance to practice AI-assisted debugging on a codeba
 You do not need to understand everything at once. Approach the app as a curious investigator, work with an AI assistant to explain what you find, and make targeted improvements.
 
 ---
+
+https://github.com/user-attachments/assets/a484fa11-03a0-45eb-94dc-9f93d2c59afc
+
+The goal of this module is to give students a healthy amount of trust/distrust in their AI tools. Preventing and catching when the AI coding tool makes a mistake is not just a reactive task, it's a proactive activity. Students may have issues being proactive due t time constraits of breakout rooms and lack of knowledge in the language or library. A task that is estimated to be 10 minutes long might end up taking 30 minutes or longer if a person were to meaningfully understand a codebase enough to pick up on the mistakes of a coding agent. In order to quickly understand a codebase, having the coding agent create Mermaid diagrams to describe the logic of the code was helpful. Turning off file editing auto-accept features for the AI coding agent was useful when trying to have control over the  changes. Also, checking the diffs was an easy way to check changes in the code. Since this activity is relatively open-ended, there isn't really one correct answer, but if a student had trouble narrowing down then I would tell them to focus on one aspect of the Streamlit app at a time. If they don't find any bugs or quirks in one part of the app, move on to the next.
+
+---
 ## Running within a uv Environment
 
 ### If uv isn't installed (1-Time Global Install)
