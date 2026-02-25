@@ -19,6 +19,7 @@ Main Flow:
 """
 
 import streamlit as st
+from typing import cast
 
 from playlist_logic import (
     DEFAULT_PROFILE,
@@ -298,10 +299,18 @@ def profile_sidebar():
         )
 
     # Favorite genre dropdown
+    # ❌ BUG: Always resets to index 0 (rock) on every render, ignoring current profile value
+    # profile["favorite_genre"] = st.sidebar.selectbox(
+    #     "Favorite genre",
+    #     options=["rock", "lofi", "pop", "jazz", "electronic", "ambient", "other"],
+    #     index=0,
+    # )
+    # ✅ FIX: Use current profile value to determine index, preserving selection across renders
+    genre_options = ["rock", "lofi", "pop", "jazz", "electronic", "ambient", "other"]
     profile["favorite_genre"] = st.sidebar.selectbox(
         "Favorite genre",
-        options=["rock", "lofi", "pop", "jazz", "electronic", "ambient", "other"],
-        index=0,
+        options=genre_options,
+        index=genre_options.index(profile.get("favorite_genre", "rock")),
     )
 
     # Checkbox to include/exclude Mixed playlist
@@ -337,7 +346,10 @@ def add_song_sidebar():
         >>> # Clicks "Add to playlist"
         >>> # Song is added to st.session_state.songs
         >>> st.session_state.songs[-1]["title"]
-        "new song"  # Normalized to lowercase
+        "new song"  # ❌ DOCSTRING ERROR: normalize_title() only strips whitespace, doesn't lowercase
+        # The actual result would be "New Song" (preserving case), not "new song"
+        # ✅ FIX: Corrected docstring to reflect actual behavior
+        "New Song"  # Title preserves case (only whitespace is stripped)
     """
     st.sidebar.header("Add a song")
 
@@ -371,12 +383,13 @@ def add_song_sidebar():
         if title and artist:
             # Normalize the song data
             normalized = normalize_song(song)
-            # Copy current songs list to avoid mutation issues
-            all_songs = st.session_state.songs[:]
-            # Append new normalized song
-            all_songs.append(normalized)
-            # Update session state
-            st.session_state.songs = all_songs
+            # ❌ QUIRK: Unnecessary list copy - could just append directly to st.session_state.songs
+            # The copy [:] creates a new list, appends to it, then reassigns back
+            # all_songs = st.session_state.songs[:]
+            # all_songs.append(normalized)
+            # st.session_state.songs = all_songs
+            # ✅ FIX: Append directly to session state list, no copy needed
+            st.session_state.songs.append(normalized)
 
 
 def playlist_tabs(playlists):
@@ -453,7 +466,9 @@ def render_playlist(label, songs):
     # Display each filtered song
     for song in filtered:
         mood = song.get("mood", "?")
-        tags = ", ".join(song.get("tags", []))
+        # ❌ tags = ", ".join(song.get("tags", []))  # Type error: song.get() returns object, not Iterable[str]
+        # ✅ Fix: Cast tags to list of strings to satisfy type checker
+        tags = ", ".join(cast(list[str], song.get("tags", [])))
         st.write(
             f"- **{song['title']}** by {song['artist']} "
             f"(genre {song['genre']}, energy {song['energy']}, mood {mood}) "
@@ -538,22 +553,30 @@ def stats_section(playlists):
 
     # Display song counts in three columns
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total songs", stats["total_songs"])
-    col2.metric("Hype songs", stats["hype_count"])
-    col3.metric("Chill songs", stats["chill_count"])
+    # ❌ col1.metric("Total songs", stats["total_songs"])  # Type error: stats values are object, not numeric
+    # ❌ col2.metric("Hype songs", stats["hype_count"])  # Type error: stats values are object, not numeric
+    # ❌ col3.metric("Chill songs", stats["chill_count"])  # Type error: stats values are object, not numeric
+    # ✅ Fix: Cast stats values to int to satisfy type checker
+    col1.metric("Total songs", cast(int, stats["total_songs"]))
+    col2.metric("Hype songs", cast(int, stats["hype_count"]))
+    col3.metric("Chill songs", cast(int, stats["chill_count"]))
 
     # Display ratios and averages in three columns
     col4, col5, col6 = st.columns(3)
-    col4.metric("Mixed songs", stats["mixed_count"])
-    col5.metric("Hype ratio", f"{stats['hype_ratio']:.2f}")
-    col6.metric("Average energy", f"{stats['avg_energy']:.2f}")
+    # ❌ col4.metric("Mixed songs", stats["mixed_count"])  # Type error: stats values are object, not numeric
+    # ❌ col5.metric("Hype ratio", f"{stats['hype_ratio']:.2f}")  # Type error: stats values are object, not numeric
+    # ❌ col6.metric("Average energy", f"{stats['avg_energy']:.2f}")  # Type error: stats values are object, not numeric
+    # ✅ Fix: Cast stats values to appropriate types to satisfy type checker
+    col4.metric("Mixed songs", cast(int, stats["mixed_count"]))
+    col5.metric("Hype ratio", f"{cast(float, stats['hype_ratio']):.2f}")
+    col6.metric("Average energy", f"{cast(float, stats['avg_energy']):.2f}")
 
     # Display most common artist
     top_artist = stats["top_artist"]
     if top_artist:
         st.write(
             f"Most common artist: {top_artist} "
-            f"({stats['top_artist_count']} songs)"
+            f"({cast(int, stats['top_artist_count'])} songs)"
         )
     else:
         st.write("No top artist yet.")
@@ -668,16 +691,19 @@ def main():
 
     # Build playlists based on current profile
     base_playlists = build_playlists(songs, profile)
-    
-    # Merge with empty playlist (no-op, but demonstrates merge functionality)
-    merged_playlists = merge_playlists(base_playlists, {})
+
+    # ❌ QUIRK: Merging with an empty playlist is a no-op - this line is unnecessary
+    # Could just use base_playlists directly instead of merged_playlists
+    # merged_playlists = merge_playlists(base_playlists, {})
+    # ✅ FIX: Use base_playlists directly, no merge needed
+    playlists = base_playlists
 
     # Display main content sections
-    playlist_tabs(merged_playlists)
+    playlist_tabs(playlists)
     st.divider()
-    lucky_section(merged_playlists)
+    lucky_section(playlists)
     st.divider()
-    stats_section(merged_playlists)
+    stats_section(playlists)
     st.divider()
     history_section()
 

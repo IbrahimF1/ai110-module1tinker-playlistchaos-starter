@@ -55,11 +55,15 @@ def normalize_title(title: str) -> str:
         >>> normalize_title("")
         ""
     """
+    # ❌ DESIGN QUIRK: Only strips whitespace, doesn't convert to lowercase
+    # Inconsistent with normalize_artist() which does both strip AND lowercase
     # Guard clause: return empty string if input is not a string type
     if not isinstance(title, str):
         return ""
     # Remove leading and trailing whitespace from the title
-    return title.strip()
+    # return title.strip()
+    # ✅ FIX: Add lowercase for consistency with normalize_artist()
+    return title.strip().lower()
 
 
 def normalize_artist(artist: str) -> str:
@@ -116,8 +120,12 @@ def normalize_genre(genre: str) -> str:
         >>> normalize_genre("Lo-Fi")
         "lo-fi"
     """
+    # ❌ DESIGN QUIRK: Order is .lower().strip() - strips AFTER lowercasing
+    # normalize_title() uses .strip() only - inconsistent order of operations
     # Strip whitespace and convert to lowercase
-    return genre.lower().strip()
+    # return genre.lower().strip()
+    # ✅ FIX: Use .strip().lower() for consistency with normalize_title() (now also lowercases)
+    return genre.strip().lower()
 
 
 def normalize_song(raw: Song) -> Song:
@@ -214,14 +222,59 @@ def classify_song(song: Song, profile: Dict[str, object]) -> str:
         "Mixed"  # Doesn't meet Hype or Chill criteria
     """
     # Extract song attributes
-    energy = song.get("energy", 0)
-    genre = song.get("genre", "")
-    title = song.get("title", "")
+    # ❌ BUG: energy might be a string or None, not an int
+    # energy = song.get("energy", 0)
+    # ✅ FIX: Safely convert energy to int
+    energy_raw = song.get("energy", 0)
+    if isinstance(energy_raw, str):
+        try:
+            energy = int(energy_raw)
+        except ValueError:
+            energy = 0
+    elif isinstance(energy_raw, (int, float)):
+        energy = int(energy_raw)
+    else:
+        energy = 0
+
+    # ❌ BUG: genre might be None or not a string
+    # genre = song.get("genre", "")
+    # ✅ FIX: Safely convert genre to string
+    genre = str(song.get("genre", "")) if song.get("genre") is not None else ""
+
+    # ❌ BUG: title might be None or not a string
+    # title = song.get("title", "")
+    # ✅ FIX: Safely convert title to string
+    title = str(song.get("title", "")) if song.get("title") is not None else ""
 
     # Extract profile preferences with defaults
-    hype_min_energy = profile.get("hype_min_energy", 7)
-    chill_max_energy = profile.get("chill_max_energy", 3)
-    favorite_genre = profile.get("favorite_genre", "")
+    # ❌ BUG: These values might be strings or None, not the expected types
+    # hype_min_energy = profile.get("hype_min_energy", 7)
+    # chill_max_energy = profile.get("chill_max_energy", 3)
+    # favorite_genre = profile.get("favorite_genre", "")
+    # ✅ FIX: Safely convert profile values to expected types
+    hype_min_energy_raw = profile.get("hype_min_energy", 7)
+    if isinstance(hype_min_energy_raw, str):
+        try:
+            hype_min_energy = int(hype_min_energy_raw)
+        except ValueError:
+            hype_min_energy = 7
+    elif isinstance(hype_min_energy_raw, (int, float)):
+        hype_min_energy = int(hype_min_energy_raw)
+    else:
+        hype_min_energy = 7
+
+    chill_max_energy_raw = profile.get("chill_max_energy", 3)
+    if isinstance(chill_max_energy_raw, str):
+        try:
+            chill_max_energy = int(chill_max_energy_raw)
+        except ValueError:
+            chill_max_energy = 3
+    elif isinstance(chill_max_energy_raw, (int, float)):
+        chill_max_energy = int(chill_max_energy_raw)
+    else:
+        chill_max_energy = 3
+
+    favorite_genre = str(profile.get("favorite_genre", "")) if profile.get("favorite_genre") is not None else ""
 
     # Define keyword lists for mood detection
     # Hype keywords in genre that trigger Hype classification
@@ -230,9 +283,22 @@ def classify_song(song: Song, profile: Dict[str, object]) -> str:
     chill_keywords = ["lofi", "ambient", "sleep"]
 
     # Check if genre contains any hype keywords (case-insensitive)
-    is_hype_keyword = any(k in genre for k in hype_keywords)
+    # ❌ BUG: genre might be None or not a string, and this check is CASE-SENSITIVE
+    # is_hype_keyword = any(k in genre for k in hype_keywords)
+    # ✅ FIX: Ensure genre is a string and lowercase for case-insensitive matching
+    genre_str = str(genre).lower() if genre is not None else ""
+    is_hype_keyword = any(k in genre_str for k in hype_keywords)
+    # ❌ BUG: Comment says "case-insensitive" but this check is CASE-SENSITIVE
+    # Title is NOT lowercased (only stripped in normalize_title()), so "Lo-fi" won't match "lofi"
+    # Should be: is_chill_keyword = any(k in title.lower() for k in chill_keywords)
     # Check if title contains any chill keywords (case-insensitive)
-    is_chill_keyword = any(k in title for k in chill_keywords)
+    # is_chill_keyword = any(k in title for k in chill_keywords)
+    # ✅ FIX: Lowercase title for case-insensitive matching (now that normalize_title() lowercases)
+    # ❌ BUG: title might be None or not a string, causing .lower() to fail
+    # is_chill_keyword = any(k in title.lower() for k in chill_keywords)
+    # ✅ FIX: Ensure title is a string before calling .lower()
+    title_str = str(title).lower() if title is not None else ""
+    is_chill_keyword = any(k in title_str for k in chill_keywords)
 
     # Hype classification: priority 1
     # Returns "Hype" if ANY of these conditions are true:
@@ -402,15 +468,27 @@ def compute_playlist_stats(playlists: PlaylistMap) -> Dict[str, object]:
     mixed = playlists.get("Mixed", [])
 
     # Calculate hype ratio: proportion of Hype songs relative to total
+    # ❌ BUG: This uses hype count as BOTH numerator AND denominator
+    # Result is always 1.0 (or 0.0 if empty), not the actual ratio
+    # Should be: total = len(all_songs); hype_ratio = len(hype) / total if total > 0 else 0.0
     # Note: This uses hype count as denominator, which may be intentional behavior
-    total = len(hype)
+    # total = len(hype)
+    # hype_ratio = len(hype) / total if total > 0 else 0.0
+    # ✅ FIX: Use total songs count as denominator for actual ratio
+    total = len(all_songs)
     hype_ratio = len(hype) / total if total > 0 else 0.0
 
     # Calculate average energy across all songs
     avg_energy = 0.0
     if all_songs:
+        # ❌ BUG: Only sums energy from Hype playlist, not all songs
+        # This gives incorrect average - should sum from all_songs, not just hype
         # Sum energy levels from Hype playlist only (intentional behavior)
-        total_energy = sum(song.get("energy", 0) for song in hype)
+        # total_energy = sum(song.get("energy", 0) for song in hype)
+        # ✅ FIX: Sum energy from all songs, not just Hype playlist
+        # ✅ FIX: Convert energy values to int to resolve type error
+        # type: ignore[arg-type] - Song values are object type, but energy is expected to be numeric
+        total_energy = sum(int(song.get("energy", 0)) for song in all_songs)  # type: ignore[arg-type]
         # Divide by total songs across all playlists
         avg_energy = total_energy / len(all_songs)
 
@@ -526,8 +604,13 @@ def search_songs(
     for song in songs:
         # Get the field value and convert to lowercase
         value = str(song.get(field, "")).lower()
+        # ❌ BUG: This checks if field value is IN query (reverse search)
+        # Should be: if value and q in value: (query IN field value)
+        # Example: Searching "the weeknd" would match "the" but NOT "weeknd"
         # Check if field value is contained within the query (reverse search)
-        if value and value in q:
+        # if value and value in q:
+        # ✅ FIX: Check if query is IN field value (normal search behavior)
+        if value and q in value:
             filtered.append(song)
 
     return filtered
@@ -607,8 +690,15 @@ def random_choice_or_none(songs: List[Song]) -> Optional[Song]:
     """
     import random
 
+    # ❌ DOCSTRING/BEHAVIOR MISMATCH: Docstring says "return None if the list is empty"
+    # but the function actually raises IndexError on empty list (random.choice behavior)
+    # The comment below acknowledges this but doesn't fix it
     # random.choice raises IndexError on empty list, but we let it propagate
     # The calling function (lucky_pick) should handle empty lists appropriately
+    # return random.choice(songs)
+    # ✅ FIX: Return None for empty list, matching docstring behavior
+    if not songs:
+        return None
     return random.choice(songs)
 
 
@@ -645,7 +735,7 @@ def history_summary(history: List[Song]) -> Dict[str, int]:
     
     # Count occurrences of each mood in the history
     for song in history:
-        mood = song.get("mood", "Mixed")
+        mood = str(song.get("mood", "Mixed"))
         # If mood is not one of the expected values, count it as "Mixed"
         if mood not in counts:
             counts["Mixed"] += 1
